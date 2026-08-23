@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>性格特質小測驗 (深度分析與後台傳送版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-muted: #666666;
+        }
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Helvetica Neue', Arial, 'LiHei Pro', 'Microsoft JhengHei', sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-main); 
+            line-height: 1.6; 
+            padding: 20px; 
+            margin: 0;
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: var(--card-bg); 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 8px 16px rgba(0,0,0,0.05); 
+        }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 10px; }
+        .intro { 
+            background: #e8f4f8; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin-bottom: 30px; 
+            font-size: 0.95em; 
+            color: #444;
+            border-left: 5px solid var(--primary-color);
+        }
+        .intro p { margin: 5px 0; }
+        .note { font-size: 0.85em; color: #888; margin-top: 10px; }
+        
+        .user-info-block {
+            margin-bottom: 25px; padding: 20px; background: #fdfbf7; border-radius: 8px;
+            border-left: 5px solid #f39c12; border: 1px solid #eee; border-left-width: 5px;
+        }
+        .info-group { margin-bottom: 15px; display: flex; align-items: center; }
+        .info-group:last-child { margin-bottom: 0; }
+        .info-group label.title-label { font-weight: bold; margin-right: 15px; color: #2c3e50; min-width: 50px;}
+        .info-group input[type="text"] {
+            padding: 10px; border: 1px solid #ccc; border-radius: 4px; flex-grow: 1; max-width: 250px; font-size: 1em;
+        }
+        .gender-label { font-weight: normal; margin-right: 20px; cursor: pointer; display: flex; align-items: center; }
+        .gender-label input { margin-right: 5px; width: 18px; height: 18px; accent-color: #f39c12; cursor: pointer; }
+
+        .question-block { margin-bottom: 25px; padding: 20px; background: #fafafa; border-radius: 8px; border: 1px solid #eee; }
+        .question-text { font-weight: bold; font-size: 1.1em; margin-bottom: 15px; color: #2c3e50; }
+        .options-container { display: flex; justify-content: space-between; align-items: center; position: relative; }
+        .options-container::before { content: ''; position: absolute; top: 14px; left: 5%; right: 5%; height: 2px; background: #ddd; z-index: 1; }
+        .option-label { display: flex; flex-direction: column; align-items: center; cursor: pointer; font-size: 0.85em; color: var(--text-muted); width: 20%; z-index: 2; }
+        .option-label input[type="radio"] { margin-bottom: 8px; width: 20px; height: 20px; accent-color: var(--primary-color); cursor: pointer; }
+        .option-text { text-align: center; padding: 0 5px; line-height: 1.2; }
+        
+        .error-message { color: #e74c3c; text-align: center; font-weight: bold; margin-bottom: 15px; display: none; background: #fadbd8; padding: 10px; border-radius: 5px; }
+        button { display: block; width: 100%; padding: 16px; background: var(--primary-color); color: #fff; border: none; border-radius: 8px; font-size: 1.2em; font-weight: bold; cursor: pointer; margin-top: 30px; transition: 0.3s; }
+        button:hover:not(:disabled) { background: #357abd; }
+        button:disabled { background: #999; cursor: not-allowed; }
+        
+        #result-section { display: none; margin-top: 40px; border-top: 2px dashed #ccc; padding-top: 30px; animation: fadeIn 0.8s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .result-title { text-align: center; color: #2c3e50; font-size: 1.8em; margin-bottom: 20px; }
+        .chart-container { position: relative; margin: 0 auto 30px auto; height: 400px; width: 100%; max-width: 500px; }
+        
+        .analysis-item { margin-bottom: 20px; padding: 20px; background: #fff; border-left: 5px solid var(--primary-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .analysis-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .analysis-title { font-weight: bold; font-size: 1.2em; color: #2c3e50; }
+        .score-badge { background: #e8f4f8; color: var(--primary-color); padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 0.9em; }
+        .analysis-desc { color: #444; }
+
+        @media (max-width: 600px) {
+            .options-container::before { display: none; }
+            .option-text { font-size: 0.8em; }
+            .info-group { flex-direction: column; align-items: flex-start; }
+            .info-group label.title-label { margin-bottom: 10px; }
+            .info-group input[type="text"] { width: 100%; max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>性格特質小測驗</h1>
+    
+    <div class="intro">
+        <p>這是一份用來了解個人特質的問卷，沒有標準答案。請依照你<strong>最近一個月</strong>最常出現的狀態，直覺作答即可。</p>
+        <p class="note">(註：本測驗題目節錄自《測驗學刊》中文版簡式「五大人格量表」BFI的發展，僅供作業模擬施測與學術討論使用。)</p>
+    </div>
+
+    <form id="quiz-form">
+        <div class="user-info-block">
+            <div class="info-group">
+                <label for="userName" class="title-label">姓名：</label>
+                <input type="text" id="userName" name="userName" required placeholder="請輸入您的真實姓名或暱稱">
+            </div>
+            <div class="info-group">
+                <label class="title-label">性別：</label>
+                <div class="gender-options">
+                    <label class="gender-label"><input type="radio" name="gender" value="男" required> 男</label>
+                    <label class="gender-label"><input type="radio" name="gender" value="女" required> 女</label>
+                    <label class="gender-label"><input type="radio" name="gender" value="不願透露" required> 不願透露</label>
+                </div>
+            </div>
+        </div>
+
+        <div id="questions-container"></div>
+        <div id="error-msg" class="error-message">尚有基本資料或題目未作答，請確認所有欄位皆已填寫！</div>
+        <button type="submit" id="submit-btn">送出並查看分析結果</button>
+    </form>
+
+    <div id="result-section">
+        <h2 class="result-title" id="dynamic-title">你的性格特質分析</h2>
+        <div class="chart-container">
+            <canvas id="radarChart"></canvas>
+        </div>
+        <div id="analysis-content"></div>
+    </div>
+</div>
+
+<script>
+    // 已經寫入你提供的專屬 Google Apps Script API 網址
+    const API_URL = "https://script.google.com/macros/s/AKfycbwAMI0AqKexDFsGgKvZ73pes_1aoxrzi0vajewn9RG2H-DQ-XIAZdjDCHqbpe7VD9DE/exec"; 
+
+    const questionsData = [
+        "1. 充滿活力", "2. 有非常多熱情", "3. 喜歡外出、好社交的",
+        "4. 樂於助人且無私的", "5. 有寬容本質", "6. 幾乎對所有人體貼且仁慈的",
+        "7. 可信賴的工作者", "8. 會堅持到工作完成", "9. 做事有效率的",
+        "10. 擔心很多的", "11. 情緒不穩定的", "12. 容易感到緊張的",
+        "13. 具有生動想像力", "14. 有創造力的", "15. 重視藝術及美學經驗"
+    ];
+
+    // 新增進階三級別 (高/中/低) 的詳細解析文字
+    const traits = [
+        { id: 'E', name: '外向性', indices: [0, 1, 2], color: 'rgba(255, 99, 132, 1)',
+          high: '你充滿活力，喜歡與人互動，在社交場合中常常是帶來熱情與能量的角色。你喜歡向外探索，並能從人群中獲得極大的動力。',
+          mid: '你在社交與獨處之間取得了良好的平衡。你能在聚會中享受與人交流的樂趣，但也懂得保留時間給自己，根據場合靈活調整自己的能量。',
+          low: '你偏好安靜、獨立的環境。這不代表你不擅社交，而是你更需要獨處的時間來為自己充電，享受內在的平靜與深度思考。' },
+        { id: 'A', name: '親和性', indices: [3, 4, 5], color: 'rgba(75, 192, 192, 1)',
+          high: '你有一顆溫暖、體貼的心，樂於助人且富有同理心。在團體中，你通常是個很好的合作夥伴，高度重視人際間的和諧與他人的感受。',
+          mid: '你通常是友善且願意合作的，但在必要時你也能堅定自己的立場。你能在「顧及他人」與「保護自我界線」之間取得健康的平衡。',
+          low: '你在人際互動中比較客觀、有主見。比起一味迎合他人，你更重視事情的合理性與執行效率，有時會展現出較強的競爭力或批判思考。' },
+        { id: 'C', name: '盡責性', indices: [6, 7, 8], color: 'rgba(54, 162, 235, 1)',
+          high: '你做事井然有序、高度自律且有目標感。你是大家眼中可靠的對象，面對任務總能堅持到底並高效率完成，對自己的要求很高。',
+          mid: '你對待工作有一定的責任感，多數情況下能按時完成任務；但你也懂得適時放鬆，不會過度苛求完美，能保持生活步調的彈性。',
+          low: '你喜歡隨性自在，不愛受到嚴格計畫或規則的拘束。比起按部就班，你更擅長在變動中隨機應變，享受充滿驚喜與彈性的生活方式。' },
+        { id: 'N', name: '神經質', indices: [9, 10, 11], color: 'rgba(153, 102, 255, 1)',
+          high: '你的情緒感受力較強，對周遭環境的變化比較敏感，因此較容易感到焦慮或壓力。但這也代表你具有很高的危機意識與非常細膩的覺察力。',
+          mid: '你的情緒起伏在一般正常範圍內。多數時候你能妥善處理生活中的壓力與挑戰，偶爾會有些許擔憂，但很快就能調適並恢復平靜。',
+          low: '你的情緒相當穩定，面對壓力和挑戰時能保持冷靜與從容。你不容易陷入焦慮，能以平穩、達觀的心態面對生活中的各種起伏。' },
+        { id: 'O', name: '開放性', indices: [12, 13, 14], color: 'rgba(255, 159, 64, 1)',
+          high: '你擁有豐富的想像力與創造力，對藝術、美學及新奇事物充滿好奇。你勇於跳脫傳統框架，喜歡探索未知的領域，思維非常活躍。',
+          mid: '你對新事物抱持開放與接受的態度，但同時也尊重並保留傳統實用的作法。你在「追求創新」與「維持現狀」中找到務實的平衡點。',
+          low: '你比較務實、腳踏實地，傾向於依靠過去的經驗與傳統的方法來解決問題。比起抽象的概念或前衛的藝術，你更重視具體且實用的事物。' }
+    ];
+
+    const scaleLabels = ["非常不精確", "有些不精確", "普通", "有些精確", "非常精確"];
+
+    const qContainer = document.getElementById('questions-container');
+    questionsData.forEach((q, index) => {
+        let html = `<div class="question-block">
+                        <div class="question-text">${q}</div>
+                        <div class="options-container">`;
+        for(let i=1; i<=5; i++) {
+            html += `
+                <label class="option-label">
+                    <input type="radio" name="q${index}" value="${i}" required>
+                    <span class="option-text">${i}分<br><small>${scaleLabels[i-1]}</small></span>
+                </label>`;
+        }
+        html += `</div></div>`;
+        qContainer.innerHTML += html;
+    });
+
+    let myChart = null;
+
+    function showResults(traitScores, userName) {
+        document.getElementById('quiz-form').style.display = 'none';
+        const resultSection = document.getElementById('result-section');
+        resultSection.style.display = 'block';
+        window.scrollTo({ top: resultSection.offsetTop - 20, behavior: 'smooth' });
+
+        document.getElementById('dynamic-title').innerText = `${userName} 的性格特質分析`;
+
+        const ctx = document.getElementById('radarChart').getContext('2d');
+        if(myChart) myChart.destroy();
+        myChart = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: traitScores.map(t => t.name),
+                datasets: [{
+                    label: '個人測驗分數 (滿分15)',
+                    data: traitScores.map(t => t.score),
+                    backgroundColor: 'rgba(74, 144, 226, 0.4)',
+                    borderColor: 'rgba(74, 144, 226, 1)',
+                    pointBackgroundColor: 'rgba(74, 144, 226, 1)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                scales: { r: { min: 0, max: 15, ticks: { stepSize: 3, display: false } } },
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+
+        const analysisContainer = document.getElementById('analysis-content');
+        
+        // --- 核心演算法：計算主導特質 (最高分) ---
+        const maxScore = Math.max(...traitScores.map(t => t.score));
+        const dominantTraits = traitScores.filter(t => t.score === maxScore).map(t => t.name).join('】與【');
+        
+        let htmlContent = `
+            <div class="analysis-item" style="border-left-color: #f39c12; background: #fffcf5;">
+                <div class="analysis-header" style="border-bottom: 2px dashed #f39c12;">
+                    <div class="analysis-title">🌟 綜合評估總結</div>
+                </div>
+                <div class="analysis-desc" style="font-size: 1.05em;">
+                    哈囉 <b>${userName}</b>！根據數據運算，你最顯著的性格特質落在 <b>【${dominantTraits}】</b> (得分 ${maxScore}/15)。<br><br>
+                    這顯示在最近的生活狀態中，你在此面向展現出最強烈的特徵。人類的性格是多元且立體的，請參考下方五大維度的專屬解析，進一步了解你獨特的光譜！
+                </div>
+            </div>
+        `;
+
+        // --- 核心演算法：三級距深度回饋 ---
+        traitScores.forEach(t => {
+            let levelLabel = "";
+            let description = "";
+            
+            if (t.score >= 12) {
+                levelLabel = "高分 (顯著)";
+                description = t.high;
+            } else if (t.score >= 8) {
+                levelLabel = "中等 (平衡)";
+                description = t.mid;
+            } else {
+                levelLabel = "低分 (隱性)";
+                description = t.low;
+            }
+
+            htmlContent += `
+                <div class="analysis-item" style="border-left-color: ${t.color}">
+                    <div class="analysis-header">
+                        <div class="analysis-title">${t.name}</div>
+                        <div class="score-badge">得分：${t.score} / 15 (${levelLabel})</div>
+                    </div>
+                    <div class="analysis-desc">${description}</div>
+                </div>
+            `;
+        });
+
+        analysisContainer.innerHTML = htmlContent;
+    }
+
+    document.getElementById('quiz-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const errorMsg = document.getElementById('error-msg');
+        errorMsg.style.display = 'none';
+
+        const userName = document.getElementById('userName').value.trim();
+        const genderElement = document.querySelector('input[name="gender"]:checked');
+        const gender = genderElement ? genderElement.value : '';
+
+        let allAnswered = true;
+        let scores = [];
+        for(let i=0; i<15; i++) {
+            const selected = document.querySelector(`input[name="q${i}"]:checked`);
+            if(!selected) { allAnswered = false; break; }
+            scores.push(parseInt(selected.value));
+        }
+
+        if(!userName || !gender || !allAnswered) {
+            errorMsg.innerText = '請確認「姓名」、「性別」及「所有題目」皆已填寫！';
+            errorMsg.style.display = 'block';
+            window.scrollTo({ top: errorMsg.offsetTop - 100, behavior: 'smooth' });
+            return;
+        }
+
+        let traitScores = traits.map(trait => {
+            let sum = trait.indices.reduce((acc, idx) => acc + scores[idx], 0);
+            return { ...trait, score: sum };
+        });
+
+        const postData = {
+            name: userName,
+            gender: gender,
+            answers: scores,
+            traits: {
+                E: traitScores.find(t => t.id === 'E').score,
+                A: traitScores.find(t => t.id === 'A').score,
+                C: traitScores.find(t => t.id === 'C').score,
+                N: traitScores.find(t => t.id === 'N').score,
+                O: traitScores.find(t => t.id === 'O').score
+            }
+        };
+
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.innerText = "資料分析與傳送中...";
+        submitBtn.disabled = true;
+
+        fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify(postData),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
+        })
+        .then(response => response.json())
+        .then(data => {
+            showResults(traitScores, userName);
+        })
+        .catch(error => {
+            alert("傳送後台時發生異常，但仍為您顯示前端分析結果。");
+            showResults(traitScores, userName);
+        });
+    });
+</script>
+
+</body>
+</html>
